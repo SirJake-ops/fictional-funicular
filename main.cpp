@@ -1,20 +1,23 @@
 #include <iostream>
 #include <onnxruntime_cxx_api.h>
 #include "httplib.h"
+#include "include/routes.h"
 
 int main() {
 
-    using namespace httplib;
+    // using namespace httplib;
+    //
+    // Server svr;
+    //
+    // svr.Get("/hi", [](const Request &req, Response &res) { res.set_content("Hello World!", "text/plain"); });
+    //
+    //
+    // svr.Get("/stop", [&](const Request &req, Response &res) { svr.stop(); });
+    //
+    // svr.listen("localhost", 1234);
+    //
 
-    Server svr;
-
-    svr.Get("/hi", [](const Request &req, Response &res) { res.set_content("Hello World!", "text/plain"); });
-
-
-    svr.Get("/stop", [&](const Request &req, Response &res) { svr.stop(); });
-
-    svr.listen("localhost", 1234);
-
+    load_routes::Routes::get_route_instance().start("localhost", 1234);
 
     auto Print = [](const std::string &msg) { std::cout << msg << std::endl; };
     Print("Hello, world!");

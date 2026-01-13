@@ -11,6 +11,10 @@ add_executable(LLM_Inference_Engine
         main.cpp
         ${SOURCES}
         ${HEADERS}
+        include/routes.h
+        docs/onnx_examples.cpp
+        src/routes.cpp
+        shared/globals.cpp
 )
 
 target_include_directories(LLM_Inference_Engine PRIVATE
