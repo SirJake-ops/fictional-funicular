@@ -25,8 +25,8 @@ namespace load_routes {
 
     private:
         Routes() = default;
-        httplib::Server _svr;
-        httplib::ErrorLogger _logger;
+        httplib::Server svr_;
+        httplib::ErrorLogger logger_;
     };
 } // namespace load_routes
 

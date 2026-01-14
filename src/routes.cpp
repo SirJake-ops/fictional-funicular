@@ -5,17 +5,19 @@
 #include "../include/routes.h"
 #include <iostream>
 
+#include "onnxruntime_cxx_api.h"
+
 void load_routes::Routes::start(const char *host, const int &port) {
     {//GET Requests
         get_hi();
         stop_server();
     }
-    _svr.listen(host, port);
+    svr_.listen(host, port);
 }
 
 void load_routes::Routes::get_hi() {
     try {
-        _svr.Get("/hi", [](const httplib::Request &req, httplib::Response &res) {
+        svr_.Get("/hi", [](const httplib::Request &req, httplib::Response &res) {
             res.set_content("Hello from the class", "text/plain");
         });
     } catch (...) {
