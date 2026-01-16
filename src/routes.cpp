@@ -8,17 +8,6 @@
 #include "../include/load_model_inference.h"
 #include "onnxruntime_cxx_api.h"
 
-template<typename T>
-struct JsonResponse {
-    std::string key_;
-    T value_;
-
-    friend std::ostream &operator<<(std::ostream &os, const JsonResponse &other) {
-        os << other.key_ << ", " << other.value_ << std::endl;
-        return os;
-    }
-};
-
 std::vector<float> run_inference(const std::vector<std::int64_t> &input_ids) {
     static model_inference::ModelInference model("../models/decoder_model.onnx");
     auto out_put = model.run_inference(input_ids);
