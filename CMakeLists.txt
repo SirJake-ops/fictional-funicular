@@ -6,17 +6,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/include/*.h)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE DOCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/docs/*.cpp)
+file(GLOB_RECURSE SHARED CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/*.cpp)
+
 
 add_executable(LLM_Inference_Engine
         main.cpp
         ${SOURCES}
         ${HEADERS}
-        include/routes.h
-        docs/onnx_examples.cpp
-        src/routes.cpp
-        shared/globals.cpp
-        include/load_model_inference.h
-        src/load_model_inference.cpp
+        ${DOCS}
+        ${SHARED}
 )
 
 target_include_directories(LLM_Inference_Engine PRIVATE
