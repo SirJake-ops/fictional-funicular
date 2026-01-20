@@ -4,9 +4,13 @@
 
 #include "../include/routes.h"
 #include <iostream>
+#include <sstream>
+#include <string>
 
 #include "../include/load_model_inference.h"
+#include "httplib.h"
 #include "onnxruntime_cxx_api.h"
+
 
 std::vector<float> run_inference(const std::vector<std::int64_t> &input_ids) {
     static model_inference::ModelInference model("../models/decoder_model.onnx");
@@ -30,6 +34,23 @@ int get_next_token(const std::vector<float> &logits, const std::size_t vocab_siz
     }
     return best_token;
 }
+
+std::vector<int> generate_text(std::vector<std::int64_t> input_ids, int max_tokens = 50257) {
+    static model_inference::ModelInference model("../models/decoder_model.onnx");
+    std::vector<int> generated;
+
+    for (int i = 0; i < max_tokens; i++) {
+        auto output = model.run_inference(input_ids);
+
+        int next_token = get_next_token(output);
+        generated.push_back(next_token);
+        input_ids.push_back(next_token);
+        if (next_token == 50256)
+            break;
+    }
+    return generated;
+}
+
 
 void load_routes::Routes::start(const char *host, const int &port) {
     { // GET Requests
@@ -72,4 +93,28 @@ void load_routes::Routes::stop_server() {
     } catch (...) {
         std::cerr << "Server cannot stop." << std::endl;
     }
+}
+
+void load_routes::Routes::generate() {
+    svr_.Get("/generate", [](const httplib::Request &req, httplib::Response &res) {
+        try {
+            std::vector<std::int64_t> input_ids;
+            if (req.has_param("input_ids")) {
+                std::string ids_str = req.get_param_value("input_ids");
+                std::stringstream ss(ids_str);
+
+                std::string token;
+                while (std::getline(ss, token, ',')) {
+                    input_ids.push_back(std::stoll(token));
+                }
+            } else {
+                input_ids = {15496, 995};
+            }
+
+            auto generated = generate_text(input_ids);
+        } catch (...) {
+            res.status = 400;
+            res.set_content("invalid input", "text/plain");
+        }
+    });
 }
