@@ -13,7 +13,7 @@
 
 
 std::vector<float> run_inference(const std::vector<std::int64_t> &input_ids) {
-    static model_inference::ModelInference model("../models/decoder_model.onnx");
+    static model_inference::ModelInference model("models/decoder_model.onnx");
     auto out_put = model.run_inference(input_ids);
     return out_put;
 }
@@ -36,7 +36,7 @@ int get_next_token(const std::vector<float> &logits, const std::size_t vocab_siz
 }
 
 std::vector<int> generate_text(std::vector<std::int64_t> input_ids, int max_tokens = 50257) {
-    static model_inference::ModelInference model("../models/decoder_model.onnx");
+    static model_inference::ModelInference model("models/decoder_model.onnx");
     std::vector<int> generated;
 
     for (int i = 0; i < max_tokens; i++) {

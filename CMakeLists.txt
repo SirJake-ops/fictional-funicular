@@ -9,13 +9,18 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE DOCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/docs/*.cpp)
 file(GLOB_RECURSE SHARED CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/*.cpp)
 
-
 add_executable(LLM_Inference_Engine
         main.cpp
         ${SOURCES}
         ${HEADERS}
         ${DOCS}
         ${SHARED}
+)
+
+add_custom_command(TARGET LLM_Inference_Engine POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/models
+          $<TARGET_FILE_DIR:LLM_Inference_Engine>/models
 )
 
 target_include_directories(LLM_Inference_Engine PRIVATE
