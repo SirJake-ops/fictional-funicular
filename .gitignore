@@ -2,3 +2,17 @@
 .idea
 cmake-build-debug
 models
+/test/CMakeFiles
+/test/_deps
+/test/bin
+/test/lib
+/test/CmakeCache.txt
+/test/CTestTestfile.cmake
+/test/LLM_Ingerence_Engine_Test
+/test/Makefile
+.cache/
+CmakeCache.txt
+CmakeFile
+cmake_install.cmake
+compile_commands.json
+
