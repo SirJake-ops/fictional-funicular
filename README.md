@@ -36,6 +36,17 @@ This project currently expects:
 
 The `.so` files can be real files or symlinks to your extracted ONNX Runtime download.
 
+Source layout:
+
+```text
+include/fictional_funicular/   public headers
+src/                           application and library source
+tests/                         test entrypoint and unit tests
+examples/                      example or scratch integration code
+third_party/                   vendored header-only/external headers
+models/                        local runtime artifacts, not committed
+```
+
 Example:
 
 ```bash
@@ -48,14 +59,14 @@ ln -sfn /path/to/onnxruntime-linux-x64-1.24.4/lib/libonnxruntime.so.1.24.4 model
 From the project root:
 
 ```bash
-cmake -S . -B .
-cmake --build .
+cmake -S . -B build
+cmake --build build
 ```
 
 This produces the executable:
 
 ```bash
-./LLM_Inference_Engine
+./build/LLM_Inference_Engine
 ```
 
 ## Run
@@ -63,7 +74,7 @@ This produces the executable:
 Start the server from the project root:
 
 ```bash
-./LLM_Inference_Engine
+./build/LLM_Inference_Engine
 ```
 
 The server is configured to listen on:
@@ -122,6 +133,6 @@ Fix:
 
 ## Notes
 
-- `httplib.h` is header-only and is already vendored in `extern/http/`
-- ONNX Runtime headers are vendored in `extern/onnx/`
+- `httplib.h` is header-only and is vendored in `third_party/http/`
+- ONNX Runtime headers are vendored in `third_party/onnx/`
 - The shared library binary is intentionally not committed to this repository
