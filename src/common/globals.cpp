@@ -16,4 +16,6 @@ const char *to_string(const REST e) {
         case REST::DELETE:
             return "DELETE";
     }
+
+    return "UNKNOWN";
 }
