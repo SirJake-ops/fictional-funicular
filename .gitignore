@@ -1,5 +1,8 @@
 .clang-format
 .idea
+.cmake/
+.ninja_deps
+.ninja_log
 cmake-build-debug
 models
 /test/CMakeFiles
@@ -11,8 +14,10 @@ models
 /test/LLM_Ingerence_Engine_Test
 /test/Makefile
 .cache/
-CmakeCache.txt
-CmakeFile
+CMakeCache.txt
+CMakeFiles/
+LLM_Inference_Engine
+Makefile
+build.ninja
 cmake_install.cmake
 compile_commands.json
-

@@ -3,13 +3,21 @@
 //
 
 #include "../include/routes.h"
+#include <filesystem>
 #include <iostream>
+#include <stdexcept>
 
 #include "../include/load_model_inference.h"
 #include "onnxruntime_cxx_api.h"
 
 std::vector<float> run_inference(const std::vector<std::int64_t> &input_ids) {
-    static model_inference::ModelInference model("../models/decoder_model.onnx");
+    static const std::filesystem::path model_path = "models/decoder_model.onnx";
+
+    if (!std::filesystem::exists(model_path)) {
+        throw std::runtime_error("Missing model file at " + model_path.string());
+    }
+
+    static model_inference::ModelInference model(model_path.string());
     auto out_put = model.run_inference(input_ids);
     return out_put;
 }
@@ -37,7 +45,9 @@ void load_routes::Routes::start(const char *host, const int &port) {
         run_model();
         stop_server();
     }
-    svr_.listen(host, port);
+    if (!svr_.listen(host, port)) {
+        std::cerr << "Server failed to listen on " << host << ":" << port << std::endl;
+    }
 }
 
 void load_routes::Routes::get_hi() {
@@ -53,15 +63,23 @@ void load_routes::Routes::get_hi() {
 void load_routes::Routes::run_model() {
     try {
         svr_.Get("/run_model", [](const httplib::Request &req, httplib::Response &res) {
-            const std::vector<std::int64_t> input_ids = {15496, 995};
-            const auto output = run_inference(input_ids);
-            const int next_token = get_next_token(output);
+            try {
+                const std::vector<std::int64_t> input_ids = {15496, 995};
+                const auto output = run_inference(input_ids);
+                const int next_token = get_next_token(output);
 
-            res.set_content("next_token_id: " + std::to_string(next_token) + "\n" +
-                                    "input_length: " + std::to_string(input_ids.size()),
-                            "text/plain");
+                res.set_content("next_token_id: " + std::to_string(next_token) + "\n" +
+                                        "input_length: " + std::to_string(input_ids.size()),
+                                "text/plain");
+            } catch (const Ort::Exception &e) {
+                res.status = 500;
+                res.set_content(std::string("Model failed to run: ") + e.what(), "text/plain");
+            } catch (const std::exception &e) {
+                res.status = 500;
+                res.set_content(e.what(), "text/plain");
+            }
         });
-    } catch (const Ort::Exception e) {
+    } catch (const Ort::Exception &e) {
         std::cerr << "Model failed to run: " << e.what() << std::endl;
     }
 }
