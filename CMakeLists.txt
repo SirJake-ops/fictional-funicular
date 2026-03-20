@@ -1,39 +1,59 @@
 cmake_minimum_required(VERSION 3.20)
-project(LLM_Inference_Engine LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+project(LLM_Inference_Engine VERSION 0.1.0 LANGUAGES CXX)
 
-set(ONNXRUNTIME_LIB "${CMAKE_SOURCE_DIR}/models/libonnxruntime.so" CACHE FILEPATH
-        "Path to the ONNX Runtime shared library")
+include(CTest)
 
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/include/*.h)
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
-file(GLOB_RECURSE DOCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/docs/*.cpp)
-file(GLOB_RECURSE SHARED CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/*.cpp)
-
-
-add_executable(LLM_Inference_Engine
-        main.cpp
-        ${SOURCES}
-        ${HEADERS}
-        ${DOCS}
-        ${SHARED}
-)
-
-target_include_directories(LLM_Inference_Engine PRIVATE
-        ${CMAKE_SOURCE_DIR}/extern/http/
-        ${CMAKE_SOURCE_DIR}/extern/onnx/
+set(ONNXRUNTIME_LIB
+    "${CMAKE_CURRENT_SOURCE_DIR}/models/libonnxruntime.so"
+    CACHE FILEPATH "Path to the ONNX Runtime shared library"
 )
 
 if(NOT (EXISTS "${ONNXRUNTIME_LIB}" OR IS_SYMLINK "${ONNXRUNTIME_LIB}"))
     message(FATAL_ERROR "Expected ONNX Runtime shared library at ${ONNXRUNTIME_LIB}")
 endif()
 
-target_link_libraries(LLM_Inference_Engine PRIVATE
-        "${ONNXRUNTIME_LIB}"
+get_filename_component(ONNXRUNTIME_LIB_DIR "${ONNXRUNTIME_LIB}" DIRECTORY)
+
+add_library(onnxruntime SHARED IMPORTED GLOBAL)
+set_target_properties(onnxruntime PROPERTIES
+    IMPORTED_LOCATION "${ONNXRUNTIME_LIB}"
+)
+
+add_library(llm_inference_engine_lib STATIC)
+
+target_sources(llm_inference_engine_lib
+    PRIVATE
+        src/inference/model_inference.cpp
+        src/http/routes.cpp
+        src/common/globals.cpp
+)
+
+target_compile_features(llm_inference_engine_lib PUBLIC cxx_std_20)
+
+target_include_directories(llm_inference_engine_lib
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/http"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/onnx"
+)
+
+target_link_libraries(llm_inference_engine_lib
+    PUBLIC
+        onnxruntime
+)
+
+add_executable(LLM_Inference_Engine src/app/main.cpp)
+
+target_link_libraries(LLM_Inference_Engine
+    PRIVATE
+        llm_inference_engine_lib
 )
 
 set_target_properties(LLM_Inference_Engine PROPERTIES
-        BUILD_RPATH "${CMAKE_SOURCE_DIR}/models"
+    BUILD_RPATH "${ONNXRUNTIME_LIB_DIR}"
 )
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

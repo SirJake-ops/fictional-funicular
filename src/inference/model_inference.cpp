@@ -2,7 +2,7 @@
 // Created by jake on 1/14/26.
 //
 
-#include "../include/load_model_inference.h"
+#include "fictional_funicular/inference/model_inference.h"
 #include <vector>
 
 std::vector<float> model_inference::ModelInference::run_inference(
