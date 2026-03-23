@@ -68,11 +68,15 @@ void load_routes::handle_hi_request(const httplib::Request &, httplib::Response 
     res.set_content("Hello from the class", "text/plain");
 }
 
-void load_routes::handle_run_model_request(const httplib::Request &,
+void load_routes::Routes::handle_run_model_request(const httplib::Request &req,
                                            httplib::Response &res,
                                            const InferenceRunner &runner) {
     try {
-        const std::vector<std::int64_t> input_ids = {15496, 995};
+
+        std::string prompt_input = req.body;
+
+        const std::vector<std::int64_t> input_ids = _tokenizer.encode(prompt_input);
+
         const auto output = runner(input_ids);
         const int next_token = get_next_token(output);
 

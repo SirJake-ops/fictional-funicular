@@ -44,6 +44,7 @@ std::vector<float> model_inference::ModelInference::run_inference(
     input_name_storage.push_back("attention_mask");
     input_tensors.push_back(std::move(mask_tensor));
 
+
     for (int i = 0; i < number_of_layers; ++i) {
         if (!_layer_cache.at(i)._keys.empty()) {
             input_name_storage.push_back("past_key_" + std::to_string(i));
@@ -64,6 +65,19 @@ std::vector<float> model_inference::ModelInference::run_inference(
     auto output_tensors =
             session_.Run(Ort::RunOptions{nullptr}, input_names.data(), input_tensors.data(),
                          input_tensors.size(), output_names, 1);
+
+    // TODO: Somewhere between here and the return
+
+    for (int i = 0; i < number_of_layers; ++i) {
+        const int key_index = 1 + i * 2;
+        const int value_index = 2 + i * 2;
+
+        _layer_cache[i]._keys.clear();
+        _layer_cache[i]._values.clear();
+
+        _layer_cache[i]._keys.push_back(std::move(output_tensors[key_index]));
+        _layer_cache[i]._values.push_back(std::move(output_tensors[value_index]));
+    }
 
     float *output_data = output_tensors[0].GetTensorMutableData<float>();
     const auto output_shape =
