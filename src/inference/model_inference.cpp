@@ -3,6 +3,7 @@
 //
 
 #include "fictional_funicular/inference/model_inference.h"
+
 #include <vector>
 
 std::vector<float> model_inference::ModelInference::run_inference(
@@ -30,10 +31,12 @@ std::vector<float> model_inference::ModelInference::run_inference(
         memory_info, attention_mask.data(), attention_mask.size(),
         input_shape.data(), input_shape.size());
 
-    const auto output_name = session_.GetOutputNameAllocated(0, allocator);
     std::vector<std::string> input_name_storage;
     std::vector<const char *> input_names;
+    std::vector<std::string> output_name_storage;
+    std::vector<const char *> output_names;
     std::vector<Ort::Value> input_tensors;
+
     input_name_storage.reserve(2 + number_of_layers * 2);
     input_tensors.reserve(2 + number_of_layers * 2);
     input_names.reserve(2 + number_of_layers * 2);
@@ -44,39 +47,46 @@ std::vector<float> model_inference::ModelInference::run_inference(
     input_name_storage.push_back("attention_mask");
     input_tensors.push_back(std::move(mask_tensor));
 
-
     for (int i = 0; i < number_of_layers; ++i) {
-        if (!_layer_cache.at(i)._keys.empty()) {
+        if (!_layer_cache.at(i)._keys.empty() && !_layer_cache.at(i)._values.empty()) {
             input_name_storage.push_back("past_key_" + std::to_string(i));
             input_tensors.push_back(std::move(_layer_cache[i]._keys.back()));
 
             input_name_storage.push_back("past_value_" + std::to_string(i));
             input_tensors.push_back(std::move(_layer_cache[i]._values.back()));
-
-        }
-
-        for (const auto &name: input_name_storage) {
-            input_names.push_back(name.c_str());
         }
     }
 
-    const char* output_names[] = {output_name.get()};
+    for (const auto &name : input_name_storage) {
+        input_names.push_back(name.c_str());
+    }
+
+    const std::size_t output_count = session_.GetOutputCount();
+    output_name_storage.reserve(output_count);
+    output_names.reserve(output_count);
+    for (std::size_t i = 0; i < output_count; ++i) {
+        output_name_storage.push_back(session_.GetOutputNameAllocated(i, allocator).get());
+    }
+    for (const auto &name : output_name_storage) {
+        output_names.push_back(name.c_str());
+    }
 
     auto output_tensors =
             session_.Run(Ort::RunOptions{nullptr}, input_names.data(), input_tensors.data(),
-                         input_tensors.size(), output_names, 1);
+                         input_tensors.size(), output_names.data(), output_names.size());
 
-    // TODO: Somewhere between here and the return
+    const std::size_t expected_cache_outputs = 1 + static_cast<std::size_t>(number_of_layers) * 2;
+    if (output_tensors.size() >= expected_cache_outputs) {
+        for (int i = 0; i < number_of_layers; ++i) {
+            const std::size_t key_index = 1 + static_cast<std::size_t>(i) * 2;
+            const std::size_t value_index = 2 + static_cast<std::size_t>(i) * 2;
 
-    for (int i = 0; i < number_of_layers; ++i) {
-        const int key_index = 1 + i * 2;
-        const int value_index = 2 + i * 2;
+            _layer_cache[i]._keys.clear();
+            _layer_cache[i]._values.clear();
 
-        _layer_cache[i]._keys.clear();
-        _layer_cache[i]._values.clear();
-
-        _layer_cache[i]._keys.push_back(std::move(output_tensors[key_index]));
-        _layer_cache[i]._values.push_back(std::move(output_tensors[value_index]));
+            _layer_cache[i]._keys.push_back(std::move(output_tensors[key_index]));
+            _layer_cache[i]._values.push_back(std::move(output_tensors[value_index]));
+        }
     }
 
     float *output_data = output_tensors[0].GetTensorMutableData<float>();

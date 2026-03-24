@@ -24,12 +24,18 @@ add_library(llm_inference_engine_lib STATIC)
 
 target_sources(llm_inference_engine_lib
     PRIVATE
+        src/tokenizer/tokenizer.cpp
         src/inference/model_inference.cpp
         src/http/routes.cpp
         src/common/globals.cpp
 )
 
 target_compile_features(llm_inference_engine_lib PUBLIC cxx_std_20)
+
+target_compile_definitions(llm_inference_engine_lib
+    PUBLIC
+        LLM_INFERENCE_ENGINE_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 target_include_directories(llm_inference_engine_lib
     PUBLIC

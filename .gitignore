@@ -35,5 +35,6 @@ cmake_install.cmake
 compile_commands.json
 CTestTestfile.cmake
 DartConfiguration.tcl
+Testing/
 libllm_inference_engine_lib.a
 tests/LLM_Inference_Engine_Test\[1\]_tests.cmake

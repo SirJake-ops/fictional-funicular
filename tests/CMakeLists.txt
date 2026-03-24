@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 4.1)
 include(GoogleTest)
 
 find_package(GTest CONFIG QUIET)
@@ -18,7 +19,7 @@ file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
 )
 
 add_executable(LLM_Inference_Engine_Test
-    main.cpp
+        tests_main.cpp
     ${TEST_SOURCES}
 )
 

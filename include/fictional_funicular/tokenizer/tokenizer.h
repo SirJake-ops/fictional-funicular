@@ -18,6 +18,7 @@ namespace token {
 
 
         std::vector<std::int64_t> encode(const std::string &input);
+        std::string decode(const std::vector<int64_t> &tokens);
     };
 }
 

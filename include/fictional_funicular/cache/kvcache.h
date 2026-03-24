@@ -4,9 +4,7 @@
 
 #ifndef LLM_INFERENCE_ENGINE_KVCACHE_H
 #define LLM_INFERENCE_ENGINE_KVCACHE_H
-#include "../../../third_party/onnx/onnxruntime_cxx_api.h"
-
-#endif //LLM_INFERENCE_ENGINE_KVCACHE_H
+#include "onnxruntime_cxx_api.h"
 
 
 namespace cache {
@@ -20,3 +18,5 @@ namespace cache {
         }
     };
 }
+
+#endif //LLM_INFERENCE_ENGINE_KVCACHE_H
