@@ -1,4 +1,5 @@
 #include "fictional_funicular/http/routes.h"
+#include "fictional_funicular/inference/model_inference.h"
 
 #include <gtest/gtest.h>
 
@@ -6,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 #include <cstdint>
+
 
 static httplib::Request make_request(std::string body = {}) {
   httplib::Request req;
@@ -89,4 +91,16 @@ TEST(RoutesRegisteredTest, RoutesRegisteredOnStartup) {
 
   client.Get("/stop");
   server_thread.join();
+}
+
+TEST(InferenceLayerCountTest, NumberOfLayersForRunningInference) {
+  constexpr std::vector<std::int64_t> input_ids;
+  constexpr int number_of_layers = 3;
+  const std::filesystem::path model_path = "models/model.onnx";
+  model_inference::ModelInference model_inference(model_path);
+
+  auto res = model_inference.run_inference(input_ids, number_of_layers);
+
+  EXPECT_EQ(model_inference.get_number_of_layers(), number_of_layers);
+
 }

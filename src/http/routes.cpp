@@ -11,53 +11,16 @@
 #include "fictional_funicular/inference/model_inference.h"
 #include "onnxruntime_cxx_api.h"
 
-namespace {
-std::filesystem::path resolve_model_path(std::filesystem::path model_path) {
-    if (model_path.is_absolute() && std::filesystem::exists(model_path)) {
-        return model_path;
-    }
-
-    const auto project_root = std::filesystem::path{LLM_INFERENCE_ENGINE_PROJECT_ROOT};
-    const auto models_dir = project_root / "models";
-
-    if (!model_path.empty()) {
-        const auto from_cwd = std::filesystem::absolute(model_path);
-        if (std::filesystem::exists(from_cwd)) {
-            return from_cwd;
-        }
-
-        const auto from_models_dir = models_dir / model_path.filename();
-        if (std::filesystem::exists(from_models_dir)) {
-            return from_models_dir;
-        }
-    }
-
-    if (std::filesystem::exists(models_dir)) {
-        for (const auto &entry : std::filesystem::directory_iterator(models_dir)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".onnx") {
-                return entry.path();
-            }
-        }
-    }
-
-    throw std::runtime_error(
-        "Missing ONNX model. Expected " + (models_dir / model_path.filename()).string() +
-        " or any .onnx file inside " + models_dir.string());
-}
-}  // namespace
-
 std::vector<float> load_routes::run_inference_with_model(
     const std::vector<std::int64_t> &input_ids,
     const std::filesystem::path &model_path) {
-    const auto resolved_model_path = resolve_model_path(model_path);
-
     static std::filesystem::path loaded_model_path;
     static std::unique_ptr<model_inference::ModelInference> model;
 
-    if (!model || loaded_model_path != resolved_model_path) {
+    if (!model || loaded_model_path != model_path) {
         model = std::make_unique<model_inference::ModelInference>(
-            resolved_model_path.string());
-        loaded_model_path = resolved_model_path;
+            model_path);
+        loaded_model_path = model_path;
     }
 
     return model->run_inference(input_ids, 12);
@@ -65,7 +28,7 @@ std::vector<float> load_routes::run_inference_with_model(
 
 std::vector<float> load_routes::run_inference(
     const std::vector<std::int64_t> &input_ids) {
-    return run_inference_with_model(input_ids, std::filesystem::relative("models/on"));
+    return run_inference_with_model(input_ids, "models/model.onnx");
 }
 
 int load_routes::get_next_token(const std::vector<float> &logits,

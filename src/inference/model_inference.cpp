@@ -4,14 +4,74 @@
 
 #include "fictional_funicular/inference/model_inference.h"
 
+#include <filesystem>
+#include <stdexcept>
 #include <vector>
+
+namespace {
+std::filesystem::path resolve_model_path(const std::filesystem::path &model_path) {
+    if (model_path.is_absolute() && std::filesystem::exists(model_path)) {
+        return model_path;
+    }
+
+    const auto project_root = std::filesystem::path{LLM_INFERENCE_ENGINE_PROJECT_ROOT};
+
+    if (!model_path.empty()) {
+        const auto from_cwd = std::filesystem::absolute(model_path);
+        if (std::filesystem::exists(from_cwd)) {
+            return from_cwd;
+        }
+
+        const auto from_project_root = project_root / model_path;
+        if (std::filesystem::exists(from_project_root)) {
+            return from_project_root;
+        }
+
+        const auto from_models_dir = project_root / "models" / model_path.filename();
+        if (std::filesystem::exists(from_models_dir)) {
+            return from_models_dir;
+        }
+
+        throw std::runtime_error(
+            "Model file does not exist: " + model_path.string());
+    }
+
+    const auto models_dir = project_root / "models";
+    if (std::filesystem::exists(models_dir)) {
+        for (const auto &entry : std::filesystem::directory_iterator(models_dir)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".onnx") {
+                return entry.path();
+            }
+        }
+    }
+
+    throw std::runtime_error("Model file does not exist and no .onnx file was found in " +
+                             models_dir.string());
+}
+} // namespace
+
+model_inference::ModelInference::ModelInference(const std::filesystem::path &path_to_model)
+    : env_(ORT_LOGGING_LEVEL_WARNING, "GPT2Inference"),
+      session_(nullptr) {
+    ort_session_options_.SetIntraOpNumThreads(4);
+    ort_session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+    const auto resolved_model_path = resolve_model_path(path_to_model);
+    session_ = Ort::Session(env_, resolved_model_path.c_str(), ort_session_options_);
+}
 
 std::vector<float> model_inference::ModelInference::run_inference(
     const std::vector<std::int64_t> &input_ids, const int &number_of_layers) {
+
     if (_layer_cache.size() != static_cast<std::size_t>(number_of_layers)) {
         _layer_cache.clear();
         _layer_cache.resize(static_cast<std::size_t>(number_of_layers));
     }
+
+    if (input_ids.empty()) {
+        return {};
+    }
+
     const Ort::AllocatorWithDefaultOptions allocator;
 
     const std::vector<std::int64_t> input_shape = {
@@ -19,6 +79,10 @@ std::vector<float> model_inference::ModelInference::run_inference(
     };
     std::vector<std::int64_t> input_ids_copy = input_ids;
     std::vector<std::int64_t> attention_mask(input_ids.size(), 1);
+    std::vector<std::int64_t> position_ids(input_ids.size());
+    for (std::size_t i = 0; i < position_ids.size(); ++i) {
+        position_ids[i] = static_cast<std::int64_t>(i);
+    }
 
     const auto memory_info =
             Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
@@ -31,15 +95,19 @@ std::vector<float> model_inference::ModelInference::run_inference(
         memory_info, attention_mask.data(), attention_mask.size(),
         input_shape.data(), input_shape.size());
 
+    Ort::Value position_tensor = Ort::Value::CreateTensor<std::int64_t>(
+        memory_info, position_ids.data(), position_ids.size(),
+        input_shape.data(), input_shape.size());
+
     std::vector<std::string> input_name_storage;
     std::vector<const char *> input_names;
     std::vector<std::string> output_name_storage;
     std::vector<const char *> output_names;
     std::vector<Ort::Value> input_tensors;
 
-    input_name_storage.reserve(2 + number_of_layers * 2);
-    input_tensors.reserve(2 + number_of_layers * 2);
-    input_names.reserve(2 + number_of_layers * 2);
+    input_name_storage.reserve(3 + number_of_layers * 2);
+    input_tensors.reserve(3 + number_of_layers * 2);
+    input_names.reserve(3 + number_of_layers * 2);
 
     input_name_storage.push_back("input_ids");
     input_tensors.push_back(std::move(input_tensor));
@@ -47,12 +115,15 @@ std::vector<float> model_inference::ModelInference::run_inference(
     input_name_storage.push_back("attention_mask");
     input_tensors.push_back(std::move(mask_tensor));
 
+    input_name_storage.push_back("position_ids");
+    input_tensors.push_back(std::move(position_tensor));
+
     for (int i = 0; i < number_of_layers; ++i) {
         if (!_layer_cache.at(i)._keys.empty() && !_layer_cache.at(i)._values.empty()) {
-            input_name_storage.push_back("past_key_" + std::to_string(i));
+            input_name_storage.push_back("past_key_values." + std::to_string(i) + ".key");
             input_tensors.push_back(std::move(_layer_cache[i]._keys.back()));
 
-            input_name_storage.push_back("past_value_" + std::to_string(i));
+            input_name_storage.push_back("past_key_values." + std::to_string(i) + ".value");
             input_tensors.push_back(std::move(_layer_cache[i]._values.back()));
         }
     }
