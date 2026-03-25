@@ -17,12 +17,12 @@ namespace load_routes {
     using InferenceRunner =
         std::function<std::vector<float>(const std::vector<std::int64_t> &)>;
     struct GenerationResult {
-        std::string prompt;
-        std::string generated_text;
-        std::vector<std::int64_t> prompt_token_ids;
-        std::vector<std::int64_t> generated_token_ids;
-        std::size_t cache_layers{0};
-        std::size_t cache_sequence_length{0};
+        std::string _prompt;
+        std::string _generated_text;
+        std::vector<std::int64_t> _prompt_token_ids;
+        std::vector<std::int64_t> _generated_token_ids;
+        std::size_t _cache_layers{0};
+        std::size_t _cache_sequence_length{0};
     };
     using GenerationRunner =
         std::function<GenerationResult(const std::string &, std::size_t)>;
@@ -71,8 +71,8 @@ namespace load_routes {
 
     private:
         Routes() = default;
-        httplib::Server svr_;
-        httplib::ErrorLogger logger_;
+        httplib::Server _server;
+        httplib::ErrorLogger _logger;
         token::Tokenizer _tokenizer;
     };
 } // namespace load_routes

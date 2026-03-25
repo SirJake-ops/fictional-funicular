@@ -95,15 +95,15 @@ std::size_t parse_max_new_tokens(const httplib::Request &req) {
 std::string generation_result_to_json(const load_routes::GenerationResult &result) {
     std::ostringstream json;
     json << "{"
-         << "\"prompt\":\"" << json_escape(result.prompt) << "\","
-         << "\"generated_text\":\"" << json_escape(result.generated_text) << "\","
-         << "\"response_text\":\"" << json_escape(result.prompt + result.generated_text) << "\","
-         << "\"prompt_token_ids\":" << encode_token_ids_json(result.prompt_token_ids) << ","
-         << "\"generated_token_ids\":" << encode_token_ids_json(result.generated_token_ids) << ","
-         << "\"prompt_token_count\":" << result.prompt_token_ids.size() << ","
-         << "\"generated_token_count\":" << result.generated_token_ids.size() << ","
-         << "\"cache_layers\":" << result.cache_layers << ","
-         << "\"cache_sequence_length\":" << result.cache_sequence_length
+         << "\"prompt\":\"" << json_escape(result._prompt) << "\","
+         << "\"generated_text\":\"" << json_escape(result._generated_text) << "\","
+         << "\"response_text\":\"" << json_escape(result._prompt + result._generated_text) << "\","
+         << "\"prompt_token_ids\":" << encode_token_ids_json(result._prompt_token_ids) << ","
+         << "\"generated_token_ids\":" << encode_token_ids_json(result._generated_token_ids) << ","
+         << "\"prompt_token_count\":" << result._prompt_token_ids.size() << ","
+         << "\"generated_token_count\":" << result._generated_token_ids.size() << ","
+         << "\"cache_layers\":" << result._cache_layers << ","
+         << "\"cache_sequence_length\":" << result._cache_sequence_length
          << "}";
     return json.str();
 }
@@ -152,12 +152,12 @@ load_routes::GenerationResult load_routes::generate_with_model(
     }
 
     return GenerationResult{
-        .prompt = prompt,
-        .generated_text = tokenizer.decode(generated_token_ids),
-        .prompt_token_ids = prompt_token_ids,
-        .generated_token_ids = generated_token_ids,
-        .cache_layers = model.get_required_cache_layer_count(),
-        .cache_sequence_length = model.get_cached_sequence_length(),
+        ._prompt = prompt,
+        ._generated_text = tokenizer.decode(generated_token_ids),
+        ._prompt_token_ids = prompt_token_ids,
+        ._generated_token_ids = generated_token_ids,
+        ._cache_layers = model.get_required_cache_layer_count(),
+        ._cache_sequence_length = model.get_cached_sequence_length(),
     };
 }
 
@@ -261,8 +261,8 @@ void load_routes::Routes::handle_generate_request(const httplib::Request &req,
 }
 
 void load_routes::Routes::start(const char *host, const int &port) {
-    register_routes(svr_);
-    if (!svr_.listen(host, port)) {
+    register_routes(_server);
+    if (!_server.listen(host, port)) {
         std::cerr << "Server failed to listen on " << host << ":" << port << std::endl;
     }
 }

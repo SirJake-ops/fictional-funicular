@@ -16,11 +16,8 @@ namespace token {
         ~Tokenizer() = default;
         Tokenizer& operator=(const Tokenizer&) = default;
 
-
-        std::vector<std::int64_t> encode(const std::string &input);
-        std::string decode(const std::vector<int64_t> &tokens);
+        std::vector<std::int64_t> encode(const std::string &input_text);
+        std::string decode(const std::vector<int64_t> &token_ids);
     };
 }
-
-
 

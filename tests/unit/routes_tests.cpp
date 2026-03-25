@@ -72,12 +72,12 @@ TEST(RouteTest, GenerateHandlerReturnsDecodedTextAndCacheMetadata) {
         EXPECT_EQ(prompt, "Hi");
         EXPECT_EQ(max_new_tokens, 2U);
         return load_routes::GenerationResult{
-            .prompt = prompt,
-            .generated_text = "OK",
-            .prompt_token_ids = {72, 105},
-            .generated_token_ids = {79, 75},
-            .cache_layers = 24,
-            .cache_sequence_length = 4,
+            ._prompt = prompt,
+            ._generated_text = "OK",
+            ._prompt_token_ids = {72, 105},
+            ._generated_token_ids = {79, 75},
+            ._cache_layers = 24,
+            ._cache_sequence_length = 4,
         };
       });
 

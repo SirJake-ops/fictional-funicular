@@ -9,12 +9,12 @@
 
 namespace cache {
     struct KVCache {
-        std::vector<Ort::Value> _keys;
-        std::vector<Ort::Value> _values;
+        std::vector<Ort::Value> _keys_cache;
+        std::vector<Ort::Value> _values_cache;
 
         void clear() {
-            _keys.clear();
-            _values.clear();
+            _keys_cache.clear();
+            _values_cache.clear();
         }
     };
 }
