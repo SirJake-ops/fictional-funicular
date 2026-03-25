@@ -1,57 +1,66 @@
 # LLM Inference Engine
 
-Small C++20 HTTP server that exposes text-generation routes and runs ONNX Runtime inference behind them.
+C++20 HTTP service for local ONNX-based text generation.
+
+The application exposes a small HTTP API, loads an ONNX model from the local `models/` directory, and runs token-by-token generation through ONNX Runtime with KV-cache reuse between decode steps inside a request.
+
+## Status
+
+This project is usable as a local development service, not a hardened production deployment.
+
+Current constraints:
+
+- The service is configured for a single local process and a fixed listen address in code.
+- Model assets are expected to exist on local disk before startup.
+- Request validation and error handling are basic.
+- The tokenizer is intentionally simplified and byte-based, not a model-matched production tokenizer.
+
+## Features
+
+- `POST /generate` endpoint for text generation
+- ONNX Runtime-backed inference
+- KV-cache reuse during autoregressive decoding
+- Project-root-relative model resolution
+- Unit test coverage for routing and inference behavior
 
 ## Requirements
 
-- CMake 3.20+
+- Linux or a compatible environment with a C++20 toolchain
+- CMake `3.20+`
 - A C++20 compiler
 - ONNX Runtime shared library for your platform
-- A compatible ONNX model file at `models/model.onnx`
+- A compatible ONNX model at `models/model.onnx`
 
-## Important: ONNX Runtime Is Not Included
+## Runtime Assets
 
-This repository does not ship the ONNX Runtime `.so` file.
+This repository does not vendor the ONNX Runtime shared library or the ONNX model.
 
-If you clone this project from GitHub, you must download ONNX Runtime yourself and provide the shared library locally before the project will build or run.
-
-On Linux x86_64, the expected runtime library is typically one of these files from an ONNX Runtime release archive:
-
-- `libonnxruntime.so.1.x.y`
-- `libonnxruntime.so`
-
-Example release archive:
-
-- `onnxruntime-linux-x64-<version>.tgz`
-
-After extracting the archive, you need the real shared library file from its `lib/` directory.
-
-## Project Layout Expectations
-
-This project currently expects:
+Expected local files:
 
 - `models/libonnxruntime.so`
 - `models/libonnxruntime.so.1`
 - `models/model.onnx`
 
-The `.so` files can be real files or symlinks to your extracted ONNX Runtime download.
-
-Source layout:
-
-```text
-include/fictional_funicular/   public headers
-src/                           application and library source
-tests/                         test entrypoint and unit tests
-examples/                      example or scratch integration code
-third_party/                   vendored header-only/external headers
-models/                        local runtime artifacts, not committed
-```
+The shared libraries may be symlinks to an extracted ONNX Runtime release.
 
 Example:
 
 ```bash
+mkdir -p models
 ln -sfn /path/to/onnxruntime-linux-x64-1.24.4/lib/libonnxruntime.so.1.24.4 models/libonnxruntime.so
 ln -sfn /path/to/onnxruntime-linux-x64-1.24.4/lib/libonnxruntime.so.1.24.4 models/libonnxruntime.so.1
+```
+
+## Repository Layout
+
+```text
+include/fictional_funicular/   public headers
+src/                           application and library source
+tests/                         unit tests
+examples/                      experimental or scratch code
+third_party/                   vendored dependencies
+models/                        local runtime assets, not committed
+build/                         generated build output
 ```
 
 ## Build
@@ -63,10 +72,16 @@ cmake -S . -B build
 cmake --build build
 ```
 
-This produces the executable:
+Produced executable:
 
 ```bash
 ./build/LLM_Inference_Engine
+```
+
+## Test
+
+```bash
+ctest --test-dir build --output-on-failure
 ```
 
 ## Run
@@ -77,21 +92,38 @@ Start the server from the project root:
 ./build/LLM_Inference_Engine
 ```
 
-The server is configured to listen on:
+Default bind address:
 
-- `127.0.0.1:1234`
+- Host: `127.0.0.1`
+- Port: `1234`
 
-Available routes:
+This is currently hardcoded in [main.cpp](/home/jake/cpp-projects/fictional-funicular/src/app/main.cpp).
 
-- `GET /hi`
-- `POST /generate`
-- `GET /run_model` (legacy one-step debug route)
-- `GET /stop`
+## HTTP API
+
+### `GET /hi`
+
+Health-style test endpoint.
+
+Response:
+
+```text
+Hello from the class
+```
+
+### `POST /generate`
+
+Primary text-generation endpoint.
+
+Request:
+
+- Body: raw prompt text
+- Query parameter: `max_tokens`
+- Default `max_tokens`: `16`
 
 Example:
 
 ```bash
-curl http://127.0.0.1:1234/hi
 curl -X POST "http://127.0.0.1:1234/generate?max_tokens=8" \
   --data "Hello, "
 ```
@@ -112,47 +144,80 @@ Example response:
 }
 ```
 
-## Request Flow
+Response fields:
 
-`POST /generate` is the main endpoint.
+- `prompt`: original request text
+- `generated_text`: decoded generated tokens
+- `response_text`: `prompt + generated_text`
+- `prompt_token_ids`: encoded prompt token ids
+- `generated_token_ids`: generated token ids
+- `prompt_token_count`: prompt token count
+- `generated_token_count`: generated token count
+- `cache_layers`: number of cache layers tracked by the model wrapper
+- `cache_sequence_length`: cached sequence length after generation
 
-Request:
+### `GET /run_model`
 
-- The request body is the raw prompt text.
-- `max_tokens` is an optional query parameter.
-- If `max_tokens` is omitted, the server generates 16 new tokens.
+Legacy debug endpoint that performs a single inference step and returns the next token id plus a decoded representation.
 
-Execution flow:
+This route is useful for debugging, not as the primary API.
 
-1. The route encodes the prompt into token ids.
-2. The model cache is reset for that request.
-3. The full prompt is sent once to prefill the model and initialize KV-cache state.
-4. The server selects the best next token from the returned logits.
-5. Each additional generation step sends only the latest token while reusing the cached keys and values from earlier steps.
-6. The generated token ids are decoded and returned along with cache metadata.
+### `GET /stop`
+
+Local shutdown route used for simple testing flows.
+
+This should not be exposed on an untrusted network.
+
+## Request Processing Flow
+
+`POST /generate` currently works like this:
+
+1. Read the request body as the prompt.
+2. Encode the prompt into token ids.
+3. Reset the in-memory KV-cache for that request.
+4. Run one prefill inference over the full prompt.
+5. Select the next token from the final logits window.
+6. Re-run inference one token at a time while reusing KV-cache state.
+7. Decode generated token ids and return JSON metadata.
 
 ## KV-Cache Behavior
 
 - KV-cache state is held inside the shared `ModelInference` instance.
-- The cache is reset at the start of every `/generate` request so prompts do not leak state into each other.
-- During a single request, the first pass builds the cache from the prompt and later passes reuse it for token-by-token decoding.
-- The response exposes `cache_layers` and `cache_sequence_length` so you can see how much cache state was retained after generation.
+- Cache state is reset at the start of each `/generate` request.
+- Cache state is reused only within the lifetime of a single generation request.
+- The response exposes cache metadata for visibility during testing and debugging.
+
+## Operational Notes
+
+- The application expects model artifacts to exist before startup; it does not download dependencies dynamically.
+- The ONNX Runtime library path is configured in CMake via `ONNXRUNTIME_LIB`.
+- The executable build uses `BUILD_RPATH` to find the ONNX Runtime shared library from the configured models directory.
+- The HTTP layer currently returns plain text for error responses and JSON only for `/generate`.
+
+## Known Limitations
+
+- The tokenizer is byte-based and simplified. It keeps token ids inside safe ONNX bounds for this project, but it is not a true model tokenizer.
+- The generation strategy is greedy argmax only.
+- There is no streaming response mode.
+- There is no authentication, rate limiting, structured logging, or configuration layer.
+- The service is tuned for local development, not multi-tenant or internet-facing deployment.
 
 ## Common Failure Modes
 
-### Linker error for `-lonnxruntime`
+### Build fails with missing ONNX Runtime library
 
 Cause:
 
-- ONNX Runtime is not installed or not wired into `models/`
+- `models/libonnxruntime.so` does not exist
+- `ONNXRUNTIME_LIB` points to a missing file
 
 Fix:
 
-- Download ONNX Runtime
-- Extract it
+- Download ONNX Runtime for your platform
+- Extract the archive
 - Point `models/libonnxruntime.so` and `models/libonnxruntime.so.1` at the real library file
 
-### Runtime error: `libonnxruntime.so.1` not found
+### Runtime fails with `libonnxruntime.so.1` not found
 
 Cause:
 
@@ -160,18 +225,30 @@ Cause:
 
 Fix:
 
-- Make sure both symlinks exist in `models/`:
-  - `libonnxruntime.so`
-  - `libonnxruntime.so.1`
+- Ensure both of these exist:
+  - `models/libonnxruntime.so`
+  - `models/libonnxruntime.so.1`
 
-### `/generate` fails
+### `POST /generate` returns an error
 
 Cause:
 
 - `models/model.onnx` is missing
-- The model is incompatible with the inference code
+- The model export does not match the inference input/output assumptions
+- The prompt is empty
 
 Fix:
 
-- Place the ONNX model file at `models/model.onnx`
-- The shared library binary is intentionally not committed to this repository
+- Place the ONNX model at `models/model.onnx`
+- Confirm the model expects the current `input_ids`, `attention_mask`, `position_ids`, and KV-cache inputs
+- Send a non-empty prompt body
+
+## Development Notes
+
+If you change the model contract, review these areas together:
+
+- [routes.cpp](/home/jake/cpp-projects/fictional-funicular/src/http/routes.cpp)
+- [model_inference.cpp](/home/jake/cpp-projects/fictional-funicular/src/inference/model_inference.cpp)
+- [tokenizer.cpp](/home/jake/cpp-projects/fictional-funicular/src/tokenizer/tokenizer.cpp)
+- [inference_tests.cpp](/home/jake/cpp-projects/fictional-funicular/tests/unit/inference_tests.cpp)
+- [routes_tests.cpp](/home/jake/cpp-projects/fictional-funicular/tests/unit/routes_tests.cpp)
